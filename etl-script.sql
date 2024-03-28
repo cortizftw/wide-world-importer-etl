@@ -33,27 +33,27 @@ CREATE TABLE FactSales (
 
 
 --Create indexes on foreign keys
-CREATE INDEX IX_FactSales_CustomerKey 	    ON FactSales(CustomerKey);
-CREATE INDEX IX_FactSales_LocationKey 	    ON FactSales(LocationKey);
-CREATE INDEX IX_FactSales_ProductKey 	    ON FactSales(ProductKey);
-CREATE INDEX IX_FactSales_SalesPersonKey 	ON FactSales(SalesPersonKey);
-CREATE INDEX IX_FactSales_SupplierKey 	    ON FactSales(SupplierKey);
-CREATE INDEX IX_FactSales_DateKey 	        ON FactSales(DateKey);
+CREATE INDEX IX_FactSales_CustomerKey       ON FactSales(CustomerKey);
+CREATE INDEX IX_FactSales_LocationKey       ON FactSales(LocationKey);
+CREATE INDEX IX_FactSales_ProductKey        ON FactSales(ProductKey);
+CREATE INDEX IX_FactSales_SalesPersonKey    ON FactSales(SalesPersonKey);
+CREATE INDEX IX_FactSales_SupplierKey       ON FactSales(SupplierKey);
+CREATE INDEX IX_FactSales_DateKey           ON FactSales(DateKey);
 
 
 --Create DimCustomers Table (Type 2 SCD)
 CREATE TABLE DimCustomers(  
-	CustomerKey 		        NUMBER(10),
-	CustomerName 		        NVARCHAR2(100) NULL,
+	CustomerKey                 NUMBER(10),
+	CustomerName                NVARCHAR2(100) NULL,
 	CustomerCategoryName        NVARCHAR2(50) NULL,
-	DeliveryCityName 	        NVARCHAR2(50) NULL,
+	DeliveryCityName            NVARCHAR2(50) NULL,
 	DeliveryStateProvCode       NVARCHAR2(5) NULL,
 	DeliveryCountryName         NVARCHAR2(50) NULL,
-	PostalCityName 		        NVARCHAR2(50) NULL,
+	PostalCityName              NVARCHAR2(50) NULL,
 	PostalStateProvCode         NVARCHAR2(5) NULL,
-	PostalCountryName 	        NVARCHAR2(50) NULL,
-	StartDate 			        DATE NOT NULL,
-	EndDate 			        DATE NULL,
+	PostalCountryName           NVARCHAR2(50) NULL,
+	StartDate                   DATE NOT NULL,
+	EndDate                     DATE NULL,
     CONSTRAINT PK_DimCustomers PRIMARY KEY ( CustomerKey )
 );
 
@@ -61,7 +61,7 @@ CREATE TABLE DimCustomers(
 --Create DimLocation Table (Type 1 SCD)
 CREATE TABLE DimLocation(  
 	LocationKey 	    NUMBER(10),
-	CityName 		    NVARCHAR2(50) NULL,
+	CityName            NVARCHAR2(50) NULL,
 	StateProvCode 	    NVARCHAR2(5) NULL,
 	StateProvName 	    NVARCHAR2(50) NULL,
 	CountryName 	    NVARCHAR2(60) NULL,
@@ -72,26 +72,26 @@ CREATE TABLE DimLocation(
 
 --Create DimProducts Table (Type 2 SCD)
 CREATE TABLE DimProducts(   
-	ProductKey 		    NUMBER(10),
+	ProductKey          NUMBER(10),
 	ProductName 	    NVARCHAR2(100) NULL,
 	ProductColour 	    NVARCHAR2(20) NULL,
 	ProductBrand 	    NVARCHAR2(50) NULL,
 	ProductSize 	    NVARCHAR2(20) NULL,
-	StartDate 		    DATE NOT NULL,
-	EndDate 		    DATE NULL,
+	StartDate           DATE NOT NULL,
+	EndDate             DATE NULL,
     CONSTRAINT PK_DimProducts PRIMARY KEY ( ProductKey )
 );
 
 
 --Create DimSalesPerson Table (Type 1 SCD)
 CREATE TABLE DimSalesPeople(    
-	SalespersonKey 	    NUMBER(10),
-	FullName 		    NVARCHAR2(50) NULL,
-	PreferredName 	    NVARCHAR2(50) NULL,
-	LogonName 		    NVARCHAR2(50) NULL,
-	PhoneNumber 	    NVARCHAR2(20) NULL,
-	FaxNumber 		    NVARCHAR2(20) NULL,
-	EmailAddress 	    NVARCHAR2(256) NULL,
+	SalespersonKey      NUMBER(10),
+	FullName            NVARCHAR2(50) NULL,
+	PreferredName       NVARCHAR2(50) NULL,
+	LogonName           NVARCHAR2(50) NULL,
+	PhoneNumber         NVARCHAR2(20) NULL,
+	FaxNumber           NVARCHAR2(20) NULL,
+	EmailAddress        NVARCHAR2(256) NULL,
     CONSTRAINT PK_DimSalesPeople PRIMARY KEY (SalespersonKey )
 );
 
