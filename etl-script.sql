@@ -105,7 +105,7 @@ CREATE TABLE DimSupplier (
     FaxNumber               NVARCHAR2(20) NULL,
     WebsiteURL              NVARCHAR2(256) NULL,
     StartDate               DATE NOT NULL,
-	EndDate                 DATE NULL,
+    EndDate                 DATE NULL,
     CONSTRAINT PK_DimSupplier PRIMARY KEY (SupplierKey)
 );
 
@@ -138,4 +138,125 @@ CREATE TABLE DimDate (
 
 
 
+--------------- REQUIREMENT 4 ----------------
+/* (1) Create Stage Tables and (2)stored procedure to extract data from source table and load into the stage tables */
+
+
+
+-------- CUSTOMERS STAGE TABLE AND EXTRACT ---------
+DROP TABLE Customers_Stage;
+
+CREATE TABLE Customers_Stage (
+    CustomerName NVARCHAR2(100),
+    CustomerCategoryName NVARCHAR2(50),
+    DeliveryCityName NVARCHAR2(50),
+    DeliveryStateProvinceCode NVARCHAR2(5),
+    DeliveryStateProvinceName NVARCHAR2(50),
+    DeliveryCountryName NVARCHAR2(50),
+    DeliveryFormalName NVARCHAR2(60),
+    PostalCityName NVARCHAR2(50),
+    PostalStateProvinceCode NVARCHAR2(5),
+    PostalStateProvinceName NVARCHAR2(50),
+    PostalCountryName NVARCHAR2(50),
+    PostalFormalName NVARCHAR2(60)
+);
+
+
+CREATE OR REPLACE PROCEDURE Customers_Extract 
+IS
+    RowCt NUMBER(10):=0;
+    v_sql VARCHAR(255) := 'TRUNCATE TABLE wwidmuser.Customers_Stage DROP STORAGE';
+BEGIN
+    EXECUTE IMMEDIATE v_sql;
+
+    INSERT INTO wwidmuser.Customers_Stage
+    WITH CityDetails AS (
+        SELECT ci.CityID,
+               ci.CityName,
+               sp.StateProvinceCode,
+               sp.StateProvinceName,
+               co.CountryName,
+               co.FormalName
+        FROM wwidbuser.Cities ci
+        LEFT JOIN wwidbuser.StateProvinces sp
+            ON ci.StateProvinceID = sp.StateProvinceID
+        LEFT JOIN wwidbuser.Countries co
+            ON sp.CountryID = co.CountryID 
+    )
+    
+    SELECT cust.CustomerName,
+           cat.CustomerCategoryName,
+           dc.CityName,
+           dc.StateProvinceCode,
+           dc.StateProvinceName,
+           dc.CountryName,
+           dc.FormalName,
+           pc.CityName,
+           pc.StateProvinceCode,
+           pc.StateProvinceName,
+           pc.CountryName,
+           pc.FormalName
+    FROM wwidbuser.Customers cust
+    LEFT JOIN wwidbuser.CustomerCategories cat
+        ON cust.CustomerCategoryID = cat.CustomerCategoryID
+    LEFT JOIN CityDetails dc
+        ON cust.DeliveryCityID = dc.CityID
+    LEFT JOIN CityDetails pc
+        ON cust.PostalCityID = pc.CityID;
+
+    RowCt := SQL%ROWCOUNT;
+    DBMS_OUTPUT.PUT_LINE('Number of customers added: ' || TO_CHAR(SQL%ROWCOUNT));
+END;
+
+SET SERVEROUT ON;
+EXECUTE Customers_Extract;
+SELECT * FROM customers_stage;
+
+
+--- PRODUCTS -----
+DROP TABLE Products_Stage;
+
+CREATE TABLE Products_Stage (
+    StockItemName   NVARCHAR2(100),
+    Brand           NVARCHAR2(50),
+    ItemSize        NVARCHAR2(20),
+    ColorName       NVARCHAR2(20)
+);
+
+
+CREATE OR REPLACE PROCEDURE Products_Extract 
+IS
+    RowCt    NUMBER(10):=  0;
+    v_sql   VARCHAR(255) := 'TRUNCATE TABLE wwidmuser.Products_Stage DROP STORAGE';
+BEGIN
+    EXECUTE IMMEDIATE v_sql;
+    
+    INSERT INTO wwidmuser.Products_Stage
+    
+    SELECT  s.StockItemName,
+            s.Brand,
+            s.ItemSize,
+            c.ColorName
+    FROM wwidbuser.StockItems s
+    LEFT JOIN wwidbuser.Colors c
+        ON s.ColorID = c.ColorID;
+    
+    RowCt := SQL%ROWCOUNT;
+    DBMS_OUTPUT.PUT_LINE('Number of products added: '|| TO_CHAR(RowCt));
+END;
+
+SET SERVEROUT ON;
+EXECUTE Products_Extract;
+SELECT * FROM Products_Stage;
+
+
+--- SALESPEOPLE -----
+
+
+
+--- ORDERS -----
+
+
+
+--- SUPPLIERS -----
 
