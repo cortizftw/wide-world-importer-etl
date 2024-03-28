@@ -98,13 +98,14 @@ CREATE TABLE DimSalesPeople(
 
 --Create DimSuppliers Table (Type 2 SCD)
 CREATE TABLE DimSupplier (
-    SupplierKey         NUMBER(10) NOT NULL,
-    FullName            NVARCHAR2(100) NULL,
-    PhoneNumber         NVARCHAR2(20) NULL,
-    FaxNumber           NVARCHAR2(20) NULL,
-    WebsiteURL          NVARCHAR2(256) NULL,
-    StartDate           DATE NOT NULL,
-	EndDate             DATE NULL,
+    SupplierKey             NUMBER(10) NOT NULL,
+    FullName                NVARCHAR2(100) NULL,
+    SupplierCategoryName    NVARCHAR2(50) NULL,
+    PhoneNumber             NVARCHAR2(20) NULL,
+    FaxNumber               NVARCHAR2(20) NULL,
+    WebsiteURL              NVARCHAR2(256) NULL,
+    StartDate               DATE NOT NULL,
+	EndDate                 DATE NULL,
     CONSTRAINT PK_DimSupplier PRIMARY KEY (SupplierKey)
 );
 
