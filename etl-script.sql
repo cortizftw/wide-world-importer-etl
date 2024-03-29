@@ -284,7 +284,7 @@ BEGIN
     
     INSERT INTO SalesPeople_Stage
     
-    SELECT FullName,
+    SELECT  FullName,
             PreferredName,
             LogonName,
             PhoneNumber,
@@ -300,9 +300,218 @@ END;
 EXECUTE SalesPeople_Extract;
 SELECT * FROM SalesPeople_Stage;
 
+
 --- ORDERS -----
 
 
 
+
+
+
+
+
 --- SUPPLIERS -----
+
+
+
+
+
+
+
+
+--------------- REQUIREMENT 5 ----------------
+/* (1) Create Preload Staging Tables and (2)stored procedure to perform transformations of the source to destination data */
+
+
+-------- CUSTOMERS PRELOAD TABLE AND TRANSFORMATION ---------
+DROP TABLE Customers_Preload;
+
+CREATE TABLE Customers_Preload (
+   CustomerKey              NUMBER(10) NOT NULL,
+   CustomerName             NVARCHAR2(100) NULL,
+   CustomerCategoryName     NVARCHAR2(50) NULL,
+   DeliveryCityName         NVARCHAR2(50) NULL,
+   DeliveryStateProvCode    NVARCHAR2(5) NULL,
+   DeliveryCountryName      NVARCHAR2(50) NULL,
+   PostalCityName           NVARCHAR2(50) NULL,
+   PostalStateProvCode      NVARCHAR2(5) NULL,
+   PostalCountryName        NVARCHAR2(50) NULL,
+   StartDate                DATE NOT NULL,
+   EndDate                  DATE NULL,
+   CONSTRAINT PK_Customers_Preload PRIMARY KEY ( CustomerKey )
+);
+
+CREATE SEQUENCE CustomerKey START WITH 1;
+
+
+CREATE OR REPLACE PROCEDURE Customers_Transform
+AS
+  RowCt NUMBER(10);
+  v_sql VARCHAR(255) := 'TRUNCATE TABLE Customers_Preload DROP STORAGE';
+  StartDate DATE := SYSDATE; 
+  EndDate DATE := SYSDATE - 1;
+BEGIN
+    EXECUTE IMMEDIATE v_sql;
+ --BEGIN TRANSACTION;
+ -- Add updated records
+    INSERT INTO Customers_Preload /* Column list excluded for brevity */
+    SELECT CustomerKey.NEXTVAL AS CustomerKey,
+           stg.CustomerName,
+           stg.CustomerCategoryName,
+           stg.DeliveryCityName,
+           stg.DeliveryStateProvinceCode,
+           stg.DeliveryCountryName,
+           stg.PostalCityName,
+           stg.PostalStateProvinceCode,
+           stg.PostalCountryName,
+           StartDate,
+           NULL
+    FROM Customers_Stage stg
+    JOIN DimCustomers cu
+        ON stg.CustomerName = cu.CustomerName AND cu.EndDate IS NULL
+    WHERE stg.CustomerCategoryName <> cu.CustomerCategoryName
+          OR stg.DeliveryCityName <> cu.DeliveryCityName
+          OR stg.DeliveryStateProvinceCode <> cu.DeliveryStateProvCode
+          OR stg.DeliveryCountryName <> cu.DeliveryCountryName
+          OR stg.PostalCityName <> cu.PostalCityName
+          OR stg.PostalStateProvinceCode <> cu.PostalStateProvCode
+          OR stg.PostalCountryName <> cu.PostalCountryName;
+
+    -- Add existing records, and expire as necessary
+    INSERT INTO Customers_Preload /* Column list excluded for brevity */
+    SELECT cu.CustomerKey,
+           cu.CustomerName,
+           cu.CustomerCategoryName,
+           cu.DeliveryCityName,
+           cu.DeliveryStateProvCode,
+           cu.DeliveryCountryName,
+           cu.PostalCityName,
+           cu.PostalStateProvCode,
+           cu.PostalCountryName,
+           cu.StartDate,
+           CASE 
+               WHEN pl.CustomerName IS NULL THEN NULL
+               ELSE cu.EndDate
+           END AS EndDate
+    FROM DimCustomers cu
+    LEFT JOIN Customers_Preload pl    
+        ON pl.CustomerName = cu.CustomerName
+        AND cu.EndDate IS NULL;
+ -- Create new records
+    INSERT INTO Customers_Preload /* Column list excluded for brevity */
+    SELECT CustomerKey.NEXTVAL AS CustomerKey,
+           stg.CustomerName,
+           stg.CustomerCategoryName,
+           stg.DeliveryCityName,
+           stg.DeliveryStateProvinceCode,
+           stg.DeliveryCountryName,
+           stg.PostalCityName,
+           stg.PostalStateProvinceCode,
+           stg.PostalCountryName,
+           StartDate,
+           NULL
+    FROM Customers_Stage stg
+    WHERE NOT EXISTS ( SELECT 1 FROM DimCustomers cu WHERE stg.CustomerName = cu.CustomerName );
+    -- Expire missing records
+    INSERT INTO Customers_Preload /* Column list excluded for brevity */
+    SELECT cu.CustomerKey,
+           cu.CustomerName,
+           cu.CustomerCategoryName,
+           cu.DeliveryCityName,
+           cu.DeliveryStateProvCode,
+           cu.DeliveryCountryName,
+           cu.PostalCityName,
+           cu.PostalStateProvCode,
+           cu.PostalCountryName,
+           cu.StartDate,
+           EndDate
+    FROM DimCustomers cu
+    WHERE NOT EXISTS ( SELECT 1 FROM Customers_Stage stg WHERE stg.CustomerName = cu.CustomerName )
+          AND cu.EndDate IS NULL;
+
+    RowCt := SQL%ROWCOUNT;
+    dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
+--COMMIT TRANSACTION;
+  EXCEPTION
+    WHEN OTHERS THEN
+       dbms_output.put_line(SQLERRM);
+       dbms_output.put_line(v_sql);
+END;
+
+
+EXECUTE Customers_Transform;
+SELECT COUNT(*) FROM Customers_Preload;
+SELECT * FROM Customers_Preload;
+
+
+
+-------- LOCATION PRELOAD TABLE AND TRANSFORMATION ---------
+
+DROP TABLE Locations_Preload;
+
+CREATE TABLE Locations_Preload (
+    LocationKey         NUMBER(10) NOT NULL,	
+    CityName            NVARCHAR2(50) NULL,
+    StateProvCode       NVARCHAR2(5) NULL,
+    StateProvName       NVARCHAR2(50) NULL,
+    CountryName         NVARCHAR2(60) NULL,
+    CountryFormalName   NVARCHAR2(60) NULL,
+    CONSTRAINT PK_Location_Preload PRIMARY KEY (LocationKey)
+);
+
+
+CREATE SEQUENCE LocationKey START WITH 1;
+
+
+CREATE OR REPLACE PROCEDURE Locations_Transform
+AS
+  RowCt NUMBER(10);
+  v_sql VARCHAR(255) := 'TRUNCATE TABLE Locations_Preload DROP STORAGE';
+BEGIN
+    EXECUTE IMMEDIATE v_sql;
+    INSERT INTO Locations_Preload /* Column list excluded for brevity */
+    SELECT LocationKey.NEXTVAL AS LocationKey,
+           cu.DeliveryCityName,
+           cu.DeliveryStateProvinceCode,
+           cu.DeliveryStateProvinceName,
+           cu.DeliveryCountryName,
+           cu.DeliveryFormalName
+    FROM Customers_Stage cu
+    WHERE NOT EXISTS 
+	( SELECT 1 
+              FROM DimLocation ci
+              WHERE cu.DeliveryCityName = ci.CityName
+                AND cu.DeliveryStateProvinceName = ci.StateProvName
+                AND cu.DeliveryCountryName = ci.CountryName 
+        );
+        
+    INSERT INTO Locations_Preload /* Column list excluded for brevity */
+    SELECT ci.LocationKey,
+           cu.DeliveryCityName,
+           cu.DeliveryStateProvinceCode,
+           cu.DeliveryStateProvinceName,
+           cu.DeliveryCountryName,
+           cu.DeliveryFormalName
+    FROM Customers_Stage cu
+    JOIN DimLocation ci
+        ON cu.DeliveryCityName = ci.CityName
+        AND cu.DeliveryStateProvinceName = ci.StateProvName
+        AND cu.DeliveryCountryName = ci.CountryName;
+    
+    RowCt := SQL%ROWCOUNT;
+    IF sql%notfound THEN
+       dbms_output.put_line('No records found. Check with source system.');
+    ELSIF sql%found THEN
+       dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
+    END IF;
+    
+  EXCEPTION
+    WHEN OTHERS THEN
+       dbms_output.put_line(SQLERRM);
+       dbms_output.put_line(v_sql);
+END;
+
+EXECUTE Locations_Transform;
+SELECT count(*) FROM Locations_Preload;
+
 
