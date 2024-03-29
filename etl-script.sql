@@ -9,36 +9,15 @@ SELECT * FROM all_users ORDER BY Created DESC;
 --------------- REQUIREMENT 1 ----------------
 /* CREATE DIMENSIONAL MODEL TABLES */
 
---Create FactSales Table
-CREATE TABLE FactSales (
-    CustomerKey      	NUMBER(10) NOT NULL,
-    LocationKey      	NUMBER(10) NOT NULL,
-    ProductKey       	NUMBER(10) NOT NULL,
-    SalespersonKey   	NUMBER(10) NOT NULL,
-    SupplierKey         NUMBER(10) NOT NULL, --ADDED SUPPLIER KEY
-    DateKey 	      	NUMBER(8) NOT NULL,
-    Quantity 	      	NUMBER(4) NOT NULL,
-    UnitPrice        	NUMBER(18,2) NOT NULL,
-    TaxRate 	      	NUMBER(18,3) NOT NULL,
-    TotalBeforeTax   	NUMBER(18,2) NOT NULL,
-    TotalAfterTax    	NUMBER(18,2) NOT NULL,
-    
-    CONSTRAINT FK_FactSales_DimCustomers FOREIGN KEY (CustomerKey) REFERENCES DimCustomers(CustomerKey),
-    CONSTRAINT FK_FactSales_DimLocation FOREIGN KEY (LocationKey) REFERENCES DimLocation(LocationKey),
-    CONSTRAINT FK_FactSales_DimProducts FOREIGN KEY (ProductKey) REFERENCES DimProducts(ProductKey),
-    CONSTRAINT FK_FactSales_DimSalesPerson FOREIGN KEY (SalesPersonKey) REFERENCES DimSalesPerson(SalesPersonKey),
-    CONSTRAINT FK_FactSales_DimSupplier FOREIGN KEY (SupplierKey) REFERENCES DimSupplier(SupplierKey),
-    CONSTRAINT FK_FactSales_DimDate FOREIGN KEY (DateKey) REFERENCES DimDate(DateKey)
-);
+/*DROP TABLES */
+DROP TABLE DimCustomers CASCADE CONSTRAINTS; 
+DROP TABLE DimLocation CASCADE CONSTRAINTS; 
+DROP TABLE DimProducts CASCADE CONSTRAINTS; 
+DROP TABLE DimSalesPeople CASCADE CONSTRAINTS;
+DROP TABLE DimSupplier CASCADE CONSTRAINTS; 
+DROP TABLE DimDate CASCADE CONSTRAINTS; 
+DROP TABLE FACTSALES;
 
-
---Create indexes on foreign keys
-CREATE INDEX IX_FactSales_CustomerKey       ON FactSales(CustomerKey);
-CREATE INDEX IX_FactSales_LocationKey       ON FactSales(LocationKey);
-CREATE INDEX IX_FactSales_ProductKey        ON FactSales(ProductKey);
-CREATE INDEX IX_FactSales_SalesPersonKey    ON FactSales(SalesPersonKey);
-CREATE INDEX IX_FactSales_SupplierKey       ON FactSales(SupplierKey);
-CREATE INDEX IX_FactSales_DateKey           ON FactSales(DateKey);
 
 
 --Create DimCustomers Table (Type 2 SCD)
@@ -83,7 +62,7 @@ CREATE TABLE DimProducts(
 );
 
 
---Create DimSalesPerson Table (Type 1 SCD)
+--Create DimSalesPeople Table (Type 1 SCD)
 CREATE TABLE DimSalesPeople(    
 	SalespersonKey      NUMBER(10),
 	FullName            NVARCHAR2(50) NULL,
@@ -124,6 +103,39 @@ CREATE TABLE DimDate (
     DayOfWeekName   VARCHAR2(9) NOT NULL,    
     CONSTRAINT PK_DimDate PRIMARY KEY ( DateKey )
 );
+
+
+
+--Create FactSales Table
+CREATE TABLE FactSales (
+    CustomerKey      	NUMBER(10) NOT NULL,
+    LocationKey      	NUMBER(10) NOT NULL,
+    ProductKey       	NUMBER(10) NOT NULL,
+    SalespersonKey   	NUMBER(10) NOT NULL,
+    SupplierKey         NUMBER(10) NOT NULL, --ADDED SUPPLIER KEY
+    DateKey 	      	NUMBER(8) NOT NULL,
+    Quantity 	      	NUMBER(4) NOT NULL,
+    UnitPrice        	NUMBER(18,2) NOT NULL,
+    TaxRate 	      	NUMBER(18,3) NOT NULL,
+    TotalBeforeTax   	NUMBER(18,2) NOT NULL,
+    TotalAfterTax    	NUMBER(18,2) NOT NULL,
+    
+    CONSTRAINT FK_FactSales_DimCustomers FOREIGN KEY (CustomerKey) REFERENCES DimCustomers(CustomerKey),
+    CONSTRAINT FK_FactSales_DimLocation FOREIGN KEY (LocationKey) REFERENCES DimLocation(LocationKey),
+    CONSTRAINT FK_FactSales_DimProducts FOREIGN KEY (ProductKey) REFERENCES DimProducts(ProductKey),
+    CONSTRAINT FK_FactSales_DimSalesPeople FOREIGN KEY (SalesPersonKey) REFERENCES DimSalesPeople(SalesPersonKey),
+    CONSTRAINT FK_FactSales_DimSupplier FOREIGN KEY (SupplierKey) REFERENCES DimSupplier(SupplierKey),
+    CONSTRAINT FK_FactSales_DimDate FOREIGN KEY (DateKey) REFERENCES DimDate(DateKey)
+);
+
+
+--Create indexes on foreign keys
+CREATE INDEX IX_FactSales_CustomerKey       ON FactSales(CustomerKey);
+CREATE INDEX IX_FactSales_LocationKey       ON FactSales(LocationKey);
+CREATE INDEX IX_FactSales_ProductKey        ON FactSales(ProductKey);
+CREATE INDEX IX_FactSales_SalesPersonKey    ON FactSales(SalesPersonKey);
+CREATE INDEX IX_FactSales_SupplierKey       ON FactSales(SupplierKey);
+CREATE INDEX IX_FactSales_DateKey           ON FactSales(DateKey);
 
 
 --------------- REQUIREMENT 2 ----------------
@@ -208,7 +220,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Number of customers added: ' || TO_CHAR(SQL%ROWCOUNT));
 END;
 
-SET SERVEROUT ON;
+
 EXECUTE Customers_Extract;
 SELECT * FROM customers_stage;
 
@@ -245,7 +257,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Number of products added: '|| TO_CHAR(RowCt));
 END;
 
-SET SERVEROUT ON;
+
 EXECUTE Products_Extract;
 SELECT * FROM Products_Stage;
 
