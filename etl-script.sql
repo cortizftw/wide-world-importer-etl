@@ -225,7 +225,7 @@ EXECUTE Customers_Extract;
 SELECT * FROM customers_stage;
 
 
---- PRODUCTS -----
+-------- PRODUCTS STAGE TABLE AND EXTRACT ---------
 DROP TABLE Products_Stage;
 
 CREATE TABLE Products_Stage (
@@ -262,9 +262,43 @@ EXECUTE Products_Extract;
 SELECT * FROM Products_Stage;
 
 
---- SALESPEOPLE -----
+--------- SALESPEOPLE STAGE TABLE AND EXTRACT ---------
+DROP TABLE SalesPeople_Stage;
+
+CREATE TABLE SalesPeople_Stage (
+    FullName            NVARCHAR2(50) NULL,
+	PreferredName       NVARCHAR2(50) NULL,
+	LogonName           NVARCHAR2(50) NULL,
+	PhoneNumber         NVARCHAR2(20) NULL,
+	FaxNumber           NVARCHAR2(20) NULL,
+	EmailAddress        NVARCHAR2(256) NULL
+);
 
 
+CREATE OR REPLACE PROCEDURE SalesPeople_Extract 
+IS 
+    RowCT NUMBER(10):=0;
+    v_sql VARCHAR2(255) := 'TRUNCATE TABLE wwidmuser.SalesPeople_Stage DROP STORAGE';
+BEGIN
+    EXECUTE IMMEDIATE v_sql;
+    
+    INSERT INTO SalesPeople_Stage
+    
+    SELECT FullName,
+            PreferredName,
+            LogonName,
+            PhoneNumber,
+            FaxNumber,
+            EmailAddress
+    FROM wwidbuser.People
+    WHERE isSalesPerson = 1;
+    
+    RowCt := SQL%ROWCOUNT;
+    DBMS_OUTPUT.PUT_LINE('Number of sales people added: '|| TO_CHAR(RowCt));
+END;
+
+EXECUTE SalesPeople_Extract;
+SELECT * FROM SalesPeople_Stage;
 
 --- ORDERS -----
 
