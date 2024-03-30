@@ -16,7 +16,7 @@ DROP TABLE DimProducts CASCADE CONSTRAINTS;
 DROP TABLE DimSalesPeople CASCADE CONSTRAINTS;
 DROP TABLE DimSupplier CASCADE CONSTRAINTS; 
 DROP TABLE DimDate CASCADE CONSTRAINTS; 
-DROP TABLE FACTSALES;
+DROP TABLE FactSales;
 
 
 
@@ -222,7 +222,8 @@ END;
 
 
 EXECUTE Customers_Extract;
-SELECT * FROM customers_stage;
+SELECT COUNT(*) FROM Customers_Stage;
+SELECT * FROM Customers_Stage;
 
 
 -------- PRODUCTS STAGE TABLE AND EXTRACT ---------
@@ -259,6 +260,7 @@ END;
 
 
 EXECUTE Products_Extract;
+SELECT COUNT(*) FROM Products_Stage;
 SELECT * FROM Products_Stage;
 
 
@@ -298,6 +300,7 @@ BEGIN
 END;
 
 EXECUTE SalesPeople_Extract;
+SELECT COUNT(*) FROM SalesPeople_Stage;
 SELECT * FROM SalesPeople_Stage;
 
 
@@ -446,7 +449,6 @@ SELECT * FROM Customers_Preload;
 
 
 -------- LOCATION PRELOAD TABLE AND TRANSFORMATION ---------
-
 DROP TABLE Locations_Preload;
 
 CREATE TABLE Locations_Preload (
@@ -513,5 +515,115 @@ END;
 
 EXECUTE Locations_Transform;
 SELECT count(*) FROM Locations_Preload;
+SELECT * FROM Locations_Preload;
 
 
+-------- PRODUCTS PRELOAD TABLE AND TRANSFORMATION ---------
+DROP TABLE Products_Preload;
+
+
+CREATE TABLE Products_Preload (
+    ProductKey          NUMBER(10),
+	ProductName 	    NVARCHAR2(100) NULL,
+	ProductColour 	    NVARCHAR2(20) NULL,
+	ProductBrand 	    NVARCHAR2(50) NULL,
+	ProductSize 	    NVARCHAR2(20) NULL,
+	StartDate           DATE NOT NULL,
+	EndDate             DATE NULL,
+    CONSTRAINT PK_Products_Preload PRIMARY KEY ( ProductKey )
+);
+
+CREATE SEQUENCE ProductKey START WITH 1;
+
+CREATE OR REPLACE PROCEDURE Products_Transform
+AS
+  RowCt NUMBER(10);
+  v_sql VARCHAR(255) := 'TRUNCATE TABLE Products_Preload DROP STORAGE';
+  StartDate DATE := SYSDATE; 
+  EndDate DATE := SYSDATE - 1;
+BEGIN
+    EXECUTE IMMEDIATE v_sql;
+
+ -- Add updated records
+    INSERT INTO Products_Preload 
+    SELECT ProductKey.NEXTVAL AS ProductKey,
+           stg.StockItemName,
+           stg.ColorName,
+           stg.Brand,
+           stg.ItemSize,
+           StartDate,
+           NULL
+    FROM Products_Stage stg
+    JOIN DimProducts cu
+        ON stg.StockItemName = cu.ProductName AND cu.EndDate IS NULL
+    WHERE stg.Brand <> cu.ProductBrand
+          OR stg.ItemSize <> cu.ProductSize
+          OR stg.ColorName <> cu.ProductColour;
+
+    -- Add existing records, and expire as necessary
+    INSERT INTO Products_Preload 
+    SELECT cu.ProductKey,
+           cu.ProductName,
+           cu.ProductColour,
+           cu.ProductBrand,
+           cu.ProductSize,
+           cu.StartDate,
+           CASE 
+               WHEN pl.ProductName IS NULL THEN NULL
+               ELSE cu.EndDate
+           END AS EndDate
+    FROM DimProducts cu
+    LEFT JOIN Products_Preload pl    
+        ON pl.ProductName = cu.ProductName
+        AND cu.EndDate IS NULL;
+        
+ -- Create new records
+    INSERT INTO Products_Preload 
+    SELECT ProductKey.NEXTVAL AS ProductKey,
+           stg.StockItemName,
+           stg.ColorName,
+           stg.Brand,
+           stg.ItemSize,
+           StartDate,
+           NULL
+    FROM Products_Stage stg
+    WHERE NOT EXISTS ( SELECT 1 FROM DimProducts cu WHERE stg.StockItemName = cu.ProductName );
+    -- Expire missing records
+    INSERT INTO Products_Preload /* Column list excluded for brevity */
+    SELECT cu.ProductKey,
+           cu.ProductName,
+           cu.ProductColour,
+           cu.ProductBrand,
+           cu.ProductSize,
+           cu.StartDate,
+           EndDate
+    FROM DimProducts cu
+    WHERE NOT EXISTS ( SELECT 1 FROM Products_Stage stg WHERE stg.StockItemName = cu.ProductName )
+          AND cu.EndDate IS NULL;
+
+    RowCt := SQL%ROWCOUNT;
+    dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
+--COMMIT TRANSACTION;
+  EXCEPTION
+    WHEN OTHERS THEN
+       dbms_output.put_line(SQLERRM);
+       dbms_output.put_line(v_sql);         
+END;
+
+
+EXECUTE Products_Transform;
+SELECT count(*) FROM Products_Preload;
+SELECT * FROM Products_Preload;
+
+
+-------- SALESPEOPLE PRELOAD TABLE AND TRANSFORMATION ---------
+
+
+
+
+-------- SUPPLIERS PRELOAD TABLE AND TRANSFORMATION ---------
+
+
+
+
+-------- ORDER PRELOAD TABLE AND TRANSFORMATION ---------
