@@ -224,7 +224,7 @@ END;
 SET SERVEROUTPUT ON;
 EXECUTE Customers_Extract;
 SELECT COUNT(*) FROM Customers_Stage;
-SELECT * FROM Customers_Stage;
+SELECT * FROM Customers_Stage FETCH FIRST 5 ROWS ONLY;
 
 
 -------- PRODUCTS STAGE TABLE AND EXTRACT ---------
@@ -262,7 +262,7 @@ END;
 
 EXECUTE Products_Extract;
 SELECT COUNT(*) FROM Products_Stage;
-SELECT * FROM Products_Stage;
+SELECT * FROM Products_Stage FETCH FIRST 5 ROWS ONLY;
 
 
 --------- SALESPEOPLE STAGE TABLE AND EXTRACT ---------
@@ -303,7 +303,7 @@ END;
 
 EXECUTE SalesPeople_Extract;
 SELECT COUNT(*) FROM SalesPeople_Stage;
-SELECT * FROM SalesPeople_Stage;
+SELECT * FROM SalesPeople_Stage FETCH FIRST 5 ROWS ONLY;
 
 
 --- ORDERS -----
@@ -382,6 +382,8 @@ BEGIN
           OR stg.PostalCityName <> cu.PostalCityName
           OR stg.PostalStateProvinceCode <> cu.PostalStateProvCode
           OR stg.PostalCountryName <> cu.PostalCountryName;
+          
+    RowCt := SQL%ROWCOUNT;
 
     -- Add existing records, and expire as necessary
     INSERT INTO Customers_Preload /* Column list excluded for brevity */
@@ -403,6 +405,8 @@ BEGIN
     LEFT JOIN Customers_Preload pl    
         ON pl.CustomerName = cu.CustomerName
         AND cu.EndDate IS NULL;
+    RowCt := RowCt + SQL%ROWCOUNT;
+
  -- Create new records
     INSERT INTO Customers_Preload /* Column list excluded for brevity */
     SELECT CustomerKey.NEXTVAL AS CustomerKey,
@@ -419,6 +423,8 @@ BEGIN
     FROM Customers_Stage stg
     WHERE NOT EXISTS ( SELECT 1 FROM DimCustomers cu WHERE stg.CustomerName = cu.CustomerName );
     -- Expire missing records
+    RowCt := RowCt + SQL%ROWCOUNT;
+
     INSERT INTO Customers_Preload /* Column list excluded for brevity */
     SELECT cu.CustomerKey,
            cu.CustomerName,
@@ -435,19 +441,25 @@ BEGIN
     WHERE NOT EXISTS ( SELECT 1 FROM Customers_Stage stg WHERE stg.CustomerName = cu.CustomerName )
           AND cu.EndDate IS NULL;
 
-    RowCt := SQL%ROWCOUNT;
-    dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
---    COMMIT TRANSACTION;
-      EXCEPTION
-        WHEN OTHERS THEN
-           dbms_output.put_line(SQLERRM);
-           dbms_output.put_line(v_sql);
+    RowCt := RowCt + SQL%ROWCOUNT;
+
+    IF RowCt = 0 THEN
+       dbms_output.put_line('No records found. Check with source system.');
+    ELSE
+       dbms_output.put_line(TO_CHAR(RowCt) || ' Rows have been inserted!');
+    END IF;
+
+    
+  EXCEPTION
+    WHEN OTHERS THEN
+       dbms_output.put_line(SQLERRM);
+       dbms_output.put_line(v_sql);
 END;
 /
 
 EXECUTE Customers_Transform;
 SELECT COUNT(*) FROM Customers_Preload;
-SELECT * FROM Customers_Preload;
+SELECT * FROM Customers_Preload FETCH FIRST 5 ROWS ONLY;
 
 
 
@@ -489,7 +501,8 @@ BEGIN
                 AND cu.DeliveryStateProvinceName = ci.StateProvName
                 AND cu.DeliveryCountryName = ci.CountryName 
         );
-        
+    RowCt := SQL%ROWCOUNT;
+    
     INSERT INTO Locations_Preload /* Column list excluded for brevity */
     SELECT ci.LocationKey,
            cu.DeliveryCityName,
@@ -503,10 +516,10 @@ BEGIN
         AND cu.DeliveryStateProvinceName = ci.StateProvName
         AND cu.DeliveryCountryName = ci.CountryName;
     
-    RowCt := SQL%ROWCOUNT;
-    IF sql%notfound THEN
+    RowCt := RowCt + SQL%ROWCOUNT;
+    IF RowCt = 0 THEN
        dbms_output.put_line('No records found. Check with source system.');
-    ELSIF sql%found THEN
+    ELSE
        dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
     END IF;
     
@@ -519,7 +532,7 @@ END;
 
 EXECUTE Locations_Transform;
 SELECT count(*) FROM Locations_Preload;
-SELECT * FROM Locations_Preload;
+SELECT * FROM Locations_Preload FETCH FIRST 5 ROWS ONLY;
 
 
 -------- PRODUCTS PRELOAD TABLE AND TRANSFORMATION ---------
@@ -564,7 +577,8 @@ BEGIN
     WHERE stg.Brand <> cu.ProductBrand
           OR stg.ItemSize <> cu.ProductSize
           OR stg.ColorName <> cu.ProductColour;
-
+    RowCt := SQL%ROWCOUNT;
+    
     -- Add existing records, and expire as necessary
     INSERT INTO Products_Preload 
     SELECT cu.ProductKey,
@@ -581,7 +595,8 @@ BEGIN
     LEFT JOIN Products_Preload pl    
         ON pl.ProductName = cu.ProductName
         AND cu.EndDate IS NULL;
-        
+    RowCt := RowCt + SQL%ROWCOUNT;
+    
  -- Create new records
     INSERT INTO Products_Preload 
     SELECT ProductKey.NEXTVAL AS ProductKey,
@@ -593,6 +608,8 @@ BEGIN
            NULL
     FROM Products_Stage stg
     WHERE NOT EXISTS ( SELECT 1 FROM DimProducts cu WHERE stg.StockItemName = cu.ProductName );
+    RowCt := RowCt + SQL%ROWCOUNT;
+    
     -- Expire missing records
     INSERT INTO Products_Preload /* Column list excluded for brevity */
     SELECT cu.ProductKey,
@@ -605,12 +622,12 @@ BEGIN
     FROM DimProducts cu
     WHERE NOT EXISTS ( SELECT 1 FROM Products_Stage stg WHERE stg.StockItemName = cu.ProductName )
           AND cu.EndDate IS NULL;
+    RowCt := RowCt + SQL%ROWCOUNT;
 
 
-    RowCt := SQL%ROWCOUNT;
-    IF sql%notfound THEN
+    IF RowCt = 0 THEN
        dbms_output.put_line('No records found. Check with source system.');
-    ELSIF sql%found THEN
+    ELSE
        dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
     END IF;
     
@@ -623,7 +640,7 @@ END;
 
 EXECUTE Products_Transform;
 SELECT count(*) FROM Products_Preload;
-SELECT * FROM Products_Preload;
+SELECT * FROM Products_Preload FETCH FIRST 5 ROWS ONLY;
 
 
 -------- SALESPEOPLE PRELOAD TABLE AND TRANSFORMATION ---------
@@ -699,7 +716,7 @@ END;
 
 EXECUTE SalesPeople_Transform;
 SELECT COUNT(*) FROM SalesPeople_Preload;
-SELECT * FROM SalesPeople_Preload;
+SELECT * FROM SalesPeople_Preload FETCH FIRST 5 ROWS ONLY;
 
 -------- SUPPLIERS PRELOAD TABLE AND TRANSFORMATION ---------
 
@@ -734,7 +751,7 @@ END;
 
 EXECUTE Customers_Load;
 SELECT COUNT(*) FROM DimCustomers;
-SELECT * FROM DimCustomers;
+SELECT * FROM DimCustomers FETCH FIRST 5 ROWS ONLY;
 
 
 -------- LOCATIONS LOAD ---------
@@ -757,7 +774,7 @@ END;
 
 EXECUTE Locations_Load;
 SELECT COUNT(*) FROM DimLocation;
-SELECT * FROM DimLocation;
+SELECT * FROM DimLocation FETCH FIRST 5 ROWS ONLY;
 
 
 -------- PRODUCTS LOAD ---------
@@ -780,7 +797,7 @@ END;
 
 EXECUTE Products_Load;
 SELECT COUNT(*) FROM DimProducts;
-SELECT * FROM DimProducts;
+SELECT * FROM DimProducts FETCH FIRST 5 ROWS ONLY;
 
 
 -------- SALESPEOPLE LOAD ---------
@@ -803,4 +820,10 @@ END;
 
 EXECUTE SalesPeople_Load;
 SELECT COUNT(*) FROM DimSalesPeople;
-SELECT * FROM DimSalesPeople;
+SELECT * FROM DimSalesPeople FETCH FIRST 5 ROWS ONLY;
+
+
+
+
+
+--------------- REQUIREMENT 7 ----------------
