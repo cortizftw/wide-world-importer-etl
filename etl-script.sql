@@ -617,9 +617,78 @@ SELECT * FROM Products_Preload;
 
 
 -------- SALESPEOPLE PRELOAD TABLE AND TRANSFORMATION ---------
+DROP TABLE SalesPeople_Preload;
+
+CREATE TABLE SalesPeople_Preload (
+    SalespersonKey      NUMBER(10),
+	FullName            NVARCHAR2(50) NULL,
+	PreferredName       NVARCHAR2(50) NULL,
+	LogonName           NVARCHAR2(50) NULL,
+	PhoneNumber         NVARCHAR2(20) NULL,
+	FaxNumber           NVARCHAR2(20) NULL,
+	EmailAddress        NVARCHAR2(256) NULL,
+    CONSTRAINT PK_SalesPeople_Preload PRIMARY KEY (SalespersonKey )
+);
+
+CREATE SEQUENCE SalesPersonKey;
 
 
+CREATE OR REPLACE PROCEDURE SalesPeople_Transform 
+AS
+    RowCt NUMBER(10);
+    v_sql VARCHAR(255) := 'TRUNCATE TABLE SalesPeople_Preload DROP STORAGE';
+BEGIN
+    EXECUTE IMMEDIATE v_sql;
+    
+    -- Insert new records from SalesPeople_Stage
+    MERGE INTO SalesPeople_Preload tgt
+    USING (
+        SELECT 
+            stg.FullName,
+            stg.PreferredName,
+            stg.LogonName,
+            stg.PhoneNumber,
+            stg.FaxNumber,
+            stg.EmailAddress
+        FROM SalesPeople_Stage stg
+    ) src
+    ON (tgt.FullName = src.FullName)
+    WHEN NOT MATCHED THEN
+    INSERT (
+        SalesPersonKey,
+        FullName,
+        PreferredName,
+        LogonName,
+        PhoneNumber,
+        FaxNumber,
+        EmailAddress
+    ) VALUES (
+        SalesPersonKey.NextVal,
+        src.FullName,
+        src.PreferredName,
+        src.LogonName,
+        src.PhoneNumber,
+        src.FaxNumber,
+        src.EmailAddress
+    );
+    
+    RowCt := SQL%ROWCOUNT;
+    IF RowCt = 0 THEN
+       dbms_output.put_line('No records found. Check with source system.');
+    ELSE
+       dbms_output.put_line(TO_CHAR(RowCt) || ' Rows have been inserted!');
+    END IF;
+    
+  EXCEPTION
+    WHEN OTHERS THEN
+       dbms_output.put_line(SQLERRM);
+       dbms_output.put_line(v_sql);
+END;
 
+
+EXECUTE SalesPeople_Transform;
+SELECT COUNT(*) FROM SalesPeople_Preload;
+SELECT * FROM SalesPeople_Preload;
 
 -------- SUPPLIERS PRELOAD TABLE AND TRANSFORMATION ---------
 
