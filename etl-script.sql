@@ -696,3 +696,100 @@ SELECT * FROM SalesPeople_Preload;
 
 
 -------- ORDER PRELOAD TABLE AND TRANSFORMATION ---------
+
+
+
+--------------- REQUIREMENT 6 ----------------
+/* CREATE ETL LOADS */
+
+
+-------- CUSTOMERS LOAD ---------
+CREATE OR REPLACE PROCEDURE Customers_Load
+AS
+BEGIN
+    --START TRANSACTION;
+
+    DELETE FROM DimCustomers cu
+    WHERE EXISTS (SELECT null FROM Customers_Preload pl
+                    WHERE cu.CustomerKey = pl.CustomerKey);
+
+    INSERT INTO DimCustomers /* Columns excluded for brevity */
+    SELECT * /* Columns excluded for brevity */
+    FROM Customers_Preload;
+
+    COMMIT;
+END;
+
+
+EXECUTE Customers_Load;
+SELECT COUNT(*) FROM DimCustomers;
+SELECT * FROM DimCustomers;
+
+
+-------- LOCATIONS LOAD ---------
+CREATE OR REPLACE PROCEDURE Locations_Load
+AS
+BEGIN
+    --START TRANSACTION;
+
+    DELETE FROM DimLocation cu
+    WHERE EXISTS (SELECT null FROM Locations_Preload pl
+                    WHERE cu.LocationKey = pl.LocationKey);
+
+    INSERT INTO DimLocation /* Columns excluded for brevity */
+    SELECT * /* Columns excluded for brevity */
+    FROM Locations_Preload;
+
+    COMMIT;
+END;
+
+
+EXECUTE Locations_Load;
+SELECT COUNT(*) FROM DimLocation;
+SELECT * FROM DimLocation;
+
+
+-------- PRODUCTS LOAD ---------
+CREATE OR REPLACE PROCEDURE Products_Load
+AS
+BEGIN
+    --START TRANSACTION;
+
+    DELETE FROM DimProducts cu
+    WHERE EXISTS (SELECT null FROM Products_Preload pl
+                    WHERE cu.ProductKey = pl.ProductKey);
+
+    INSERT INTO DimProducts /* Columns excluded for brevity */
+    SELECT * /* Columns excluded for brevity */
+    FROM Products_Preload;
+
+    COMMIT;
+END;
+
+
+EXECUTE Products_Load;
+SELECT COUNT(*) FROM DimProducts;
+SELECT * FROM DimProducts;
+
+
+-------- SALESPEOPLE LOAD ---------
+CREATE OR REPLACE PROCEDURE SalesPeople_Load
+AS
+BEGIN
+    --START TRANSACTION;
+
+    DELETE FROM DimSalesPeople cu
+    WHERE EXISTS (SELECT null FROM SalesPeople_Preload pl
+                    WHERE cu.SalesPersonKey = pl.SalesPersonKey);
+
+    INSERT INTO DimSalesPeople /* Columns excluded for brevity */
+    SELECT * /* Columns excluded for brevity */
+    FROM SalesPeople_Preload;
+
+    COMMIT;
+END;
+
+
+EXECUTE SalesPeople_Load;
+SELECT COUNT(*) FROM DimSalesPeople;
+SELECT * FROM DimSalesPeople;
