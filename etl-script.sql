@@ -2,7 +2,7 @@
 ALTER session set "_ORACLE_SCRIPT" = true;
 CREATE USER wwidmuser identified by wwidmuser;
 GRANT ALL PRIVILEGES TO wwidmuser;
-SELECT * FROM all_users ORDER BY Created DESC;
+--SELECT * FROM all_users ORDER BY Created DESC FETCH FIRST 5 ROWS ONLY;
 
 
 
@@ -219,8 +219,9 @@ BEGIN
     RowCt := SQL%ROWCOUNT;
     DBMS_OUTPUT.PUT_LINE('Number of customers added: ' || TO_CHAR(SQL%ROWCOUNT));
 END;
+/
 
-
+SET SERVEROUTPUT ON;
 EXECUTE Customers_Extract;
 SELECT COUNT(*) FROM Customers_Stage;
 SELECT * FROM Customers_Stage;
@@ -257,7 +258,7 @@ BEGIN
     RowCt := SQL%ROWCOUNT;
     DBMS_OUTPUT.PUT_LINE('Number of products added: '|| TO_CHAR(RowCt));
 END;
-
+/
 
 EXECUTE Products_Extract;
 SELECT COUNT(*) FROM Products_Stage;
@@ -298,6 +299,7 @@ BEGIN
     RowCt := SQL%ROWCOUNT;
     DBMS_OUTPUT.PUT_LINE('Number of sales people added: '|| TO_CHAR(RowCt));
 END;
+/
 
 EXECUTE SalesPeople_Extract;
 SELECT COUNT(*) FROM SalesPeople_Stage;
@@ -344,6 +346,7 @@ CREATE TABLE Customers_Preload (
    CONSTRAINT PK_Customers_Preload PRIMARY KEY ( CustomerKey )
 );
 
+DROP SEQUENCE CustomerKey;
 CREATE SEQUENCE CustomerKey START WITH 1;
 
 
@@ -355,7 +358,7 @@ AS
   EndDate DATE := SYSDATE - 1;
 BEGIN
     EXECUTE IMMEDIATE v_sql;
- --BEGIN TRANSACTION;
+-- BEGIN TRANSACTION;
  -- Add updated records
     INSERT INTO Customers_Preload /* Column list excluded for brevity */
     SELECT CustomerKey.NEXTVAL AS CustomerKey,
@@ -434,13 +437,13 @@ BEGIN
 
     RowCt := SQL%ROWCOUNT;
     dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
---COMMIT TRANSACTION;
-  EXCEPTION
-    WHEN OTHERS THEN
-       dbms_output.put_line(SQLERRM);
-       dbms_output.put_line(v_sql);
+--    COMMIT TRANSACTION;
+      EXCEPTION
+        WHEN OTHERS THEN
+           dbms_output.put_line(SQLERRM);
+           dbms_output.put_line(v_sql);
 END;
-
+/
 
 EXECUTE Customers_Transform;
 SELECT COUNT(*) FROM Customers_Preload;
@@ -461,7 +464,7 @@ CREATE TABLE Locations_Preload (
     CONSTRAINT PK_Location_Preload PRIMARY KEY (LocationKey)
 );
 
-
+DROP SEQUENCE LocationKey;
 CREATE SEQUENCE LocationKey START WITH 1;
 
 
@@ -512,6 +515,7 @@ BEGIN
        dbms_output.put_line(SQLERRM);
        dbms_output.put_line(v_sql);
 END;
+/
 
 EXECUTE Locations_Transform;
 SELECT count(*) FROM Locations_Preload;
@@ -533,6 +537,7 @@ CREATE TABLE Products_Preload (
     CONSTRAINT PK_Products_Preload PRIMARY KEY ( ProductKey )
 );
 
+DROP SEQUENCE ProductKey;
 CREATE SEQUENCE ProductKey START WITH 1;
 
 CREATE OR REPLACE PROCEDURE Products_Transform
@@ -601,15 +606,20 @@ BEGIN
     WHERE NOT EXISTS ( SELECT 1 FROM Products_Stage stg WHERE stg.StockItemName = cu.ProductName )
           AND cu.EndDate IS NULL;
 
+
     RowCt := SQL%ROWCOUNT;
-    dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
---COMMIT TRANSACTION;
+    IF sql%notfound THEN
+       dbms_output.put_line('No records found. Check with source system.');
+    ELSIF sql%found THEN
+       dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
+    END IF;
+    
   EXCEPTION
     WHEN OTHERS THEN
        dbms_output.put_line(SQLERRM);
-       dbms_output.put_line(v_sql);         
+       dbms_output.put_line(v_sql);        
 END;
-
+/
 
 EXECUTE Products_Transform;
 SELECT count(*) FROM Products_Preload;
@@ -630,7 +640,8 @@ CREATE TABLE SalesPeople_Preload (
     CONSTRAINT PK_SalesPeople_Preload PRIMARY KEY (SalespersonKey )
 );
 
-CREATE SEQUENCE SalesPersonKey;
+DROP SEQUENCE SalesPersonKey;
+CREATE SEQUENCE SalesPersonKey START WITH 1;
 
 
 CREATE OR REPLACE PROCEDURE SalesPeople_Transform 
@@ -673,18 +684,18 @@ BEGIN
     );
     
     RowCt := SQL%ROWCOUNT;
-    IF RowCt = 0 THEN
+    IF sql%notfound THEN
        dbms_output.put_line('No records found. Check with source system.');
-    ELSE
-       dbms_output.put_line(TO_CHAR(RowCt) || ' Rows have been inserted!');
+    ELSIF sql%found THEN
+       dbms_output.put_line(TO_CHAR(RowCt) ||' Rows have been inserted!');
     END IF;
     
-  EXCEPTION
+    EXCEPTION
     WHEN OTHERS THEN
        dbms_output.put_line(SQLERRM);
        dbms_output.put_line(v_sql);
 END;
-
+/
 
 EXECUTE SalesPeople_Transform;
 SELECT COUNT(*) FROM SalesPeople_Preload;
@@ -700,7 +711,7 @@ SELECT * FROM SalesPeople_Preload;
 
 
 --------------- REQUIREMENT 6 ----------------
-/* CREATE ETL LOADS */
+/* CREATE PROCEDURE LOADS */
 
 
 -------- CUSTOMERS LOAD ---------
@@ -719,7 +730,7 @@ BEGIN
 
     COMMIT;
 END;
-
+/
 
 EXECUTE Customers_Load;
 SELECT COUNT(*) FROM DimCustomers;
@@ -742,7 +753,7 @@ BEGIN
 
     COMMIT;
 END;
-
+/
 
 EXECUTE Locations_Load;
 SELECT COUNT(*) FROM DimLocation;
@@ -765,7 +776,7 @@ BEGIN
 
     COMMIT;
 END;
-
+/
 
 EXECUTE Products_Load;
 SELECT COUNT(*) FROM DimProducts;
@@ -776,7 +787,7 @@ SELECT * FROM DimProducts;
 CREATE OR REPLACE PROCEDURE SalesPeople_Load
 AS
 BEGIN
-    --START TRANSACTION;
+--    START TRANSACTION;
 
     DELETE FROM DimSalesPeople cu
     WHERE EXISTS (SELECT null FROM SalesPeople_Preload pl
@@ -788,7 +799,7 @@ BEGIN
 
     COMMIT;
 END;
-
+/
 
 EXECUTE SalesPeople_Load;
 SELECT COUNT(*) FROM DimSalesPeople;
